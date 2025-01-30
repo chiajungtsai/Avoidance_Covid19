@@ -1,0 +1,1022 @@
+---
+title: "CHBS_paper_3_avoidance_SI"
+author: "Chia-Jung Tsai"
+date: "2024-07-24"
+output: html_document
+---
+
+
+### Figure S1
+
+
+```{r}
+
+coeff <- 0.9
+
+#tiff("U:/CHBS_1/output/Avoidance/avoidance_ts_30.01.2024.tiff", units = "cm", width = 28 , height = 17, res= 400)
+
+
+avoid.all.measure <-All_Avoid %>% 
+  ggplot(aes(x=date, y=rolling_mean))+
+  geom_ma(aes(linetype=Avoid_type, color=Origin), ma_fun=SMA, n=1)+
+  scale_x_date(date_labels ='%y-%m-%d')+
+  theme_minimal()+
+  coord_x_date(xlim = c("2020-03-15","2020-05-10"))+
+  facet_wrap(~country_region_code, ncol=3)+
+  xlab("")+
+  scale_linetype_manual(
+    name = "Try to Avoid...",
+    values = c("People" = "solid", "Restaurants" = "twodash", "Products/food" = "dotted"),  
+    labels = c("People", "Restaurants", "Products/food"),
+    breaks = c("People", "Restaurants", "Products/food"))+
+  scale_color_manual(
+    name = "Origin",
+    values = c("Asia" = "#1F78B4", "Iran" = "#33A02C","Italy"="#FF7F00"),  
+    labels = c("Asian", "Iranian","Italian"),
+    breaks = c("Asia", "Iran","Italy")) +
+  theme(legend.position = c(0.82, 0.10), legend.box = "horizontal")+
+  geom_line(aes(x=date, y=rest_mobility + coeff), color="gray40",linewidth = 0.6, lineend = "round", linetype ="dotted")+
+  scale_y_continuous(name = "Level of Avoidance", 
+                     limits = c(0, NA),
+                     sec.axis = sec_axis(~.-coeff, name = "Google Mobility Index"))+
+  geom_vline(data = lockdown, aes(xintercept=lock.date), color= "gray10", linetype ="dashed")+
+  geom_line(aes(x=date, y=mask_wearing ), color="gray60",linewidth = 0.6, lineend = "round", linetype ="solid")
+
+
+print(avoid.all.measure)
+
+#dev.off()
+
+```
+
+
+
+###  Overall estimation
+#### To list all coeffeicients and odds ratio together
+
+```{r}
+
+#library(modelsummary)
+mod_1 = glm(AS_PRDT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.1 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.2 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.3 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.4 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.5 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.6 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.7 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.8 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.9 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list("Odds Ratio" = mod_1, "Coef" = mod_1, 
+               "Odds Ratio" = mod_1.1, "Coef" = mod_1.1,
+               "Odds Ratio" = mod_1.2, "Coef" = mod_1.2,
+               "Odds Ratio" = mod_1.3, "Coef" = mod_1.3,
+               "Odds Ratio" = mod_1.4, "Coef" = mod_1.4,
+               "Odds Ratio" = mod_1.5, "Coef" = mod_1.5,
+               "Odds Ratio" = mod_1.6, "Coef" = mod_1.6,
+               "Odds Ratio" = mod_1.7, "Coef" = mod_1.7,
+               "Odds Ratio" = mod_1.8, "Coef" = mod_1.8,
+               "Odds Ratio" = mod_1.9, "Coef" = mod_1.9)
+
+```
+
+```{r}
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+
+cap <- 'Outcome: Avoidance to Asian Products/ Food'
+
+
+tab.aspr<- modelsummary(mod_all, exponentiate = c(TRUE, FALSE, 
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE,
+                                       TRUE, FALSE),
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "tab.html")
+
+
+```
+```{r}
+
+gt.tab.aspr <- tab.aspr %>%
+  tab_style(style = cell_fill(color = 'lightblue'),
+              locations = cells_body(rows = 5))%>%
+  tab_style(style = cell_fill(color = 'lightblue'),
+              locations = cells_body(rows = 7)) %>%
+# increase the width of each column
+    cols_width(everything() ~ px(180))%>% 
+  # increase the height of each row
+    tab_options(data_row.padding = px(3))
+
+gtsave(gt.tab.aspr, "U:/CHBS_1/output/Avoidance/tab_aspr.png", expand = 10)
+
+```
+
+#### Output of 2 predictors
+
+
+```{r}
+
+#library(modelsummary)
+mod_1 = glm(AS_PRDT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.1 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.2 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.3 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.4 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.5 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.6 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.7 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.8 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.9 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_1, mod_1.1, mod_1.2, mod_1.3, mod_1.4, 
+               mod_1.5, mod_1.6, mod_1.7, mod_1.8, mod_1.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Products/ Food'
+
+
+tab.aspr <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.aspr,"tab.aspr.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_2 = glm(AS_REST ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.1 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.2 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.3 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.4 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.5 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.6 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.7 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.8 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.9 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_2, mod_2.1, mod_2.2, mod_2.3, mod_2.4, 
+               mod_2.5, mod_2.6, mod_2.7, mod_2.8, mod_2.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Restaurants'
+
+
+tab.asrs <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.asrs,"tab.asrs.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_3 = glm(AS_CONT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.1 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.2 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.3 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.4 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.5 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.6 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.7 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.8 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.9 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_3, mod_3.1, mod_3.2, mod_3.3, mod_3.4, 
+               mod_3.5, mod_3.6, mod_3.7, mod_3.8, mod_3.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Contacts'
+
+
+tab.asct <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.asct,"tab.asct.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_4 = glm(IR_PRDT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.1 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.2 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.3 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.4 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.5 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.6 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.7 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.8 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.9 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_4, mod_4.1, mod_4.2, mod_4.3, mod_4.4, 
+               mod_4.5, mod_4.6, mod_4.7, mod_4.8, mod_4.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Products/ Food'
+
+
+tab.irpr <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irpr,"tab.irpr.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_5 = glm(IR_REST ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.1 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.2 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.3 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.4 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.5 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.6 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.7 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.8 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.9 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_5, mod_5.1, mod_5.2, mod_5.3, mod_5.4, 
+               mod_5.5, mod_5.6, mod_5.7, mod_5.8, mod_5.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Restaurants'
+
+
+tab.irrs <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irrs,"tab.irrs.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_6 = glm(IR_CONT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.1 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.2 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.3 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.4 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.5 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.6 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.7 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.8 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.9 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_6, mod_6.1, mod_6.2, mod_6.3, mod_6.4, 
+               mod_6.5, mod_6.6, mod_6.7, mod_6.8, mod_6.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Contacts'
+
+
+tab.irct <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irct,"tab.irct.xlsx")
+
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_7 = glm(IT_PRDT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.1 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.2 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.3 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.4 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.5 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.6 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.7 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.8 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.9 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_7, mod_7.1, mod_7.2, mod_7.3, mod_7.4, 
+               mod_7.5, mod_7.6, mod_7.7, mod_7.8, mod_7.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Italian Products/ Food'
+
+
+tab.itpr <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itpr,"tab.itpr.xlsx")
+
+
+
+#library(modelsummary)
+mod_8 = glm(IT_REST ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.1 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.2 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.3 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.4 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.5 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.6 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.7 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.8 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.9 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_8, mod_8.1, mod_8.2, mod_8.3, mod_8.4, 
+               mod_8.5, mod_8.6, mod_8.7, mod_8.8, mod_8.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Italian Restaurants'
+
+
+tab.itrs <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itrs,"tab.itrs.xlsx")
+
+
+
+#library(modelsummary)
+mod_9 = glm(IT_CONT ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.1 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ001, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.2 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ002, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.3 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ003, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.4 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.5 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ005, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.6 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ006, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.7 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ007, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.8 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ008, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.9 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ009, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_9, mod_9.1, mod_9.2, mod_9.3, mod_9.4, 
+               mod_9.5, mod_9.6, mod_9.7, mod_9.8, mod_9.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Contacts'
+
+
+tab.itct <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itct,"tab.itct.xlsx")
+
+
+```
+
+
+
+
+### With Control
+
+> SEX
+> AGEGROUP
+> WORKSTAT_SQ001 :  In paid work (or away temporarily) (employee, self-employed, working for your family business)  
+> EDUC
+
+```{r}
+
+#library(modelsummary)
+mod_1 = glm(AS_PRDT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.1 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.2 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.3 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.4 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.5 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.6 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.7 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.8 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.9 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_1, mod_1.1, mod_1.2, mod_1.3, mod_1.4, 
+               mod_1.5, mod_1.6, mod_1.7, mod_1.8, mod_1.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Products/ Food with controls'
+
+
+tab.aspr.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.aspr.col,"tab.aspr.col.xlsx")
+
+
+```
+
+
+```{r}
+
+#library(modelsummary)
+mod_2 = glm(AS_REST ~ RISK_SQ004, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.1 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.2 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.3 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.4 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.5 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.6 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.7 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.8 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_2.9 = glm(AS_REST ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_2, mod_2.1, mod_2.2, mod_2.3, mod_2.4, 
+               mod_2.5, mod_2.6, mod_2.7, mod_2.8, mod_2.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Restaurants with controls'
+
+
+tab.asrs.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.asrs.col,"tab.asrs.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_3 = glm(AS_CONT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.1 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.2 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.3 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.4 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.5 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.6 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.7 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.8 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_3.9 = glm(AS_CONT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_3, mod_3.1, mod_3.2, mod_3.3, mod_3.4, 
+               mod_3.5, mod_3.6, mod_3.7, mod_3.8, mod_3.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Contacts with controls'
+
+
+tab.asct.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.asct.col,"tab.asct.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_4 = glm(IR_PRDT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.1 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.2 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.3 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.4 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.5 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.6 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.7 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.8 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_4.9 = glm(IR_PRDT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_4, mod_4.1, mod_4.2, mod_4.3, mod_4.4, 
+               mod_4.5, mod_4.6, mod_4.7, mod_4.8, mod_4.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Products/ Food with controls'
+
+
+tab.irpr.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irpr.col,"tab.irpr.col.xlsx")
+
+
+#library(modelsummary)
+mod_5 = glm(IR_REST ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.1 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.2 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.3 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.4 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.5 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.6 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.7 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.8 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_5.9 = glm(IR_REST ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_5, mod_5.1, mod_5.2, mod_5.3, mod_5.4, 
+               mod_5.5, mod_5.6, mod_5.7, mod_5.8, mod_5.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Restaurants with controls'
+
+
+tab.irrs.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irrs.col,"tab.irrs.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_6 = glm(IR_CONT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.1 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.2 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.3 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.4 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.5 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.6 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.7 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.8 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_6.9 = glm(IR_CONT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_6, mod_6.1, mod_6.2, mod_6.3, mod_6.4, 
+               mod_6.5, mod_6.6, mod_6.7, mod_6.8, mod_6.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Contacts with controls'
+
+
+tab.irct.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.irct.col,"tab.irct.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_7 = glm(IT_PRDT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.1 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.2 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.3 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.4 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.5 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.6 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.7 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.8 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_7.9 = glm(IT_PRDT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_7, mod_7.1, mod_7.2, mod_7.3, mod_7.4, 
+               mod_7.5, mod_7.6, mod_7.7, mod_7.8, mod_7.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Italian Products/ Food with controls'
+
+
+tab.itpr.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itpr.col,"tab.itpr.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_8 = glm(IT_REST ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.1 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.2 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.3 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.4 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.5 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.6 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.7 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.8 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_8.9 = glm(IT_REST ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_8, mod_8.1, mod_8.2, mod_8.3, mod_8.4, 
+               mod_8.5, mod_8.6, mod_8.7, mod_8.8, mod_8.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Italian Restaurants with controls'
+
+
+tab.itrs.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itrs.col,"tab.itrs.col.xlsx")
+
+```
+
+```{r}
+
+#library(modelsummary)
+mod_9 = glm(IT_CONT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.1 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.2 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.3 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.4 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.5 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.6 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.7 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.8 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_9.9 = glm(IT_CONT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_9, mod_9.1, mod_9.2, mod_9.3, mod_9.4, 
+               mod_9.5, mod_9.6, mod_9.7, mod_9.8, mod_9.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Iranian Contacts with controls'
+
+
+tab.itct.col <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+write.xlsx(tab.itct.col,"tab.itct.col.xlsx")
+
+
+```
+
+
+
+
+
+
+### With Control (+country)
+
+> SEX
+> AGEGROUP
+> WORKSTAT_SQ001 :  In paid work (or away temporarily) (employee, self-employed, working for your family business)  
+> EDUC
+> COUNTRY
+
+```{r}
+
+#library(modelsummary)
+mod_1 = glm(AS_PRDT ~ RISK_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.1 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ001+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.2 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ002+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.3 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ003+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.4 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ004+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.5 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ005+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.6 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ006+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.7 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ007+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.8 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ008+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+mod_1.9 = glm(AS_PRDT ~ RISK_SQ004+ CONFINF_SQ009+SEX+AGEGROUP+WORKSTAT_SQ001+EDUC+COUNTRY, weights = dt_4$PSWEIGHT, data = dt_4, family = binomial(link = "logit"))
+
+mod_all = list(mod_1, mod_1.1, mod_1.2, mod_1.3, mod_1.4, 
+               mod_1.5, mod_1.6, mod_1.7, mod_1.8, mod_1.9)
+
+
+cm <- c('(Intercept)' = '(Intercept)',
+        'RISK_SQ004'= 'Perceived Threats',
+        'CONFINF_SQ001'= 'Social Media Network',
+        'CONFINF_SQ002'= 'Friends, Family & Colleagues',
+        'CONFINF_SQ003'='Government Health Officials',
+        'CONFINF_SQ004'= 'Radio',
+        'CONFINF_SQ005'= 'Magazines',
+        'CONFINF_SQ006'='Newspapers',
+        'CONFINF_SQ007'= 'Television',
+        'CONFINF_SQ008'= 'The Internet',
+        'CONFINF_SQ009'='Medical Professionals\n(e.g. Doctor)'
+        )
+
+cap <- 'Outcome: Avoidance to Asian Products/ Food with controls'
+
+
+tab.aspr.col.c <- modelsummary(mod_all, exponentiate = TRUE,
+             coef_map = cm, stars = TRUE,
+             title = cap, output = "data.frame")
+
+
+#library(openxlsx)
+# write.xlsx(tab.aspr.col.c,"tab.aspr.col.c.xlsx")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

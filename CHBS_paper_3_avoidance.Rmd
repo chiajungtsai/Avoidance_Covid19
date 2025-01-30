@@ -1,0 +1,1155 @@
+---
+title: "CHBS_Paper_3_1"
+author: "Chia-Jung Tsai"
+date: "2023-12-20"
+output: html_document
+---
+
+#### All Variables used in analysis
+
+> RISK_SQ001;What level of threat do you think the coronavirus poses to each of the following?;The world
+RISK_SQ002;What level of threat do you think the coronavirus poses to each of the following?;Your country
+RISK_SQ003;What level of threat do you think the coronavirus poses to each of the following?;Your local community
+RISK_SQ004;What level of threat do you think the coronavirus poses to each of the following?;You personally
+RISK_SQ005;What level of threat do you think the coronavirus poses to each of the following?;Your family
+
+
+> CONFINF_SQ001;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Social media networks
+CONFINF_SQ002;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Friends, Family & colleagues
+CONFINF_SQ003;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Government health officials
+CONFINF_SQ004;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Radio
+CONFINF_SQ005;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Magazines
+CONFINF_SQ006;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Newspapers
+CONFINF_SQ007;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Television
+CONFINF_SQ008;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;The Internet
+CONFINF_SQ009;How much confidence, if any, do you have in the accuracy of these sources of information on the coronavirus?;Medical professionals such as doctors and nurses
+
+
+> ACTIONS_SQ001;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided purchasing products from Asia (e.g. food, goods)
+ACTIONS_SQ002;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided purchasing products from Italy (e.g. food, goods)
+ACTIONS_SQ003;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided purchasing products from Iran (e.g. food, goods)
+ACTIONS_SQ005;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided eating in Asian restaurants
+ACTIONS_SQ006;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided eating in Italian restaurants
+ACTIONS_SQ007;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided eating in Iranian restaurants 
+ACTIONS_SQ018;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided contacts with people of Asian origin or appearance
+ACTIONS_SQ019;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided contacts with people of Italian origin or appearance
+ACTIONS_SQ020;Which of the following actions, if any, have you already taken to protect yourself from the coronavirus?;Avoided contacts with people of Iranian origin or appearance
+
+
+
+```{r}
+library(diagram)
+
+data <- c(0, "", 0,
+          0, 0, 0, 
+          "", "", 0)
+M<- matrix (nrow=3, ncol=3, byrow = TRUE, data=data)
+plot<- plotmat (M, pos=c(1,2), 
+                name= c("Trust in\nInformation Sources","Percieved\nThreats", "Avoidance\nBehaviors"), 
+                box.type = "rect", box.size = 0.15, box.prop=0.5,  curve=0)
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(ggrepel)
+library(data.table)
+library(ggpubr)
+library(tidyquant)
+library(Hmisc)
+library(seismicRoll)
+library(viridis)
+
+options(scipen = 999)
+options(na.action = na.omit)
+
+```
+
+#### Read in data
+```{r}
+
+dt <- read.csv("N:/CHBS_Tsai/data/CHBS/CHBS_data_preprocessed_2020-03-13_2020-08-12.csv", sep = ";")
+```
+
+```{r}
+
+dt_1 <- subset(dt, LCOUNTRY=="Belgium"|LCOUNTRY=="France"|LCOUNTRY=="Germany"|LCOUNTRY=="Italy"|LCOUNTRY=="Netherlands (the)"|LCOUNTRY=="Spain"|LCOUNTRY=="United Kingdom of Great Britain and Northern Ireland (the)"|LCOUNTRY=="United States of America (the)")
+
+```
+
+
+```{r}
+
+names(dt_1)<-toupper(names(dt_1))
+
+# delete missing in weight variable and empty string
+dt_1<- dt_1[!(is.na(dt_1$MACROAREA) | dt_1$MACROAREA==""| dt_1$AGEGROUP==""),]
+dt_1<- dt_1[dt_1$SEX !="Prefer not to answer",]
+
+```
+
+
+#### Create variable of post-stratification weighting (population)
+```{r}
+## post-stratification weight
+pop<- read.csv("N:/CHBS_Tsai/data/population_data/TableForWeights.csv")
+
+pop <-pop %>% mutate(prop_pop = true_count / sum(true_count))
+pop<- pop[,-1]
+names(pop)[2] <-paste("MACROAREA")
+names(pop)[3] <-paste("SEX")
+names(pop)[4] <-paste("AGEGROUP")
+names(pop)<-toupper(names(pop))
+
+pop <- pop %>% mutate(SEX=case_when(
+  SEX=="Males" ~"Male",
+  SEX=="Females" ~"Female"
+))
+
+pop<- pop[pop$MACROAREA !="Island of France (ignore)",]
+
+```
+
+```{r}
+weightsb <- dt_1 %>% 
+  # get sample counts 
+  count(COUNTRY, MACROAREA, SEX, AGEGROUP) %>%
+  # get sample proportions from the counts
+  mutate(PROP_SAMPLE = n / sum(n)) %>%
+  # merge in population proportions
+  full_join(pop, by=c("COUNTRY", "MACROAREA", "SEX", "AGEGROUP")) %>%
+  # calculate weights
+  mutate(PSWEIGHT = PROP_POP / PROP_SAMPLE)
+```
+
+```{r}
+dt_2 <- left_join(dt_1, unique(weightsb), by=c("COUNTRY", "MACROAREA", "SEX", "AGEGROUP"))
+
+```
+
+
+```{r}
+
+dt_2 <- dt_2 %>% filter(DATE<= "2020-05-06")
+dt_2$DATE <- as.Date(dt_2$DATE) 
+
+```
+
+
+```{r}
+dt_2$MACROAREA[dt_2$MACROAREA=="SÃ¼ddeutschland"] <- "Sueddeutschland"
+dt_2$MACROAREA[dt_2$MACROAREA=="Norrdeutschland"] <- "Norddeutschland"
+
+```
+
+
+
+#### Create mobility baseline variable
+
+```{r}
+
+ region_mobility <- read.csv("U:/CHBS_1/Google Mobility Data/region_mobility.csv") 
+
+```
+
+
+```{r}
+region_mobility $date <- as.Date(region_mobility$date) 
+region_mobility  <- region_mobility  %>% filter(date >= "2020-03-13" & date <= "2020-05-06")
+
+```
+
+```{r}
+region_mobility  <- region_mobility %>%
+  filter(region == "Overall")
+
+```
+
+
+```{r}
+region_mobility$country_region_code[region_mobility$country_region_code=="GB"] <- "UK"
+
+
+```
+
+
+
+
+#### Clean and recode data
+
+```{r}
+ # recode migrants and natives
+
+dt_3 <- dt_2 %>% mutate(
+  MIGRT= case_when( BCOUNTRY==LCOUNTRY ~ 0,
+                    TRUE~ 1))
+dt_3$MIGRT <- factor(dt_3$MIGRT, levels = c(0,1), labels = c("Native","Migrant"))
+
+
+```
+
+
+
+```{r, warning=FALSE}
+
+dt_3<-dt_3 %>% mutate_at(c("RISK_SQ001", "RISK_SQ002", "RISK_SQ003", "RISK_SQ004", "RISK_SQ005"),
+                         funs(recode(., 
+                                     "1 - Very low threat" =1, 
+                                     "2 - Low threat" = 2, 
+                                     "3 - Moderate threat"= 3, 
+                                     "4 - High threat" = 4,  
+                                     "5 - Very high threat" = 5, 
+                                     .default = NaN)))
+
+dt_3<-dt_3 %>% mutate_at(c("CONFORG_SQ001", "CONFORG_SQ002", "CONFORG_SQ003", "CONFORG_SQ004", "CONFORG_SQ005","CONFORG_SQ006","CONFORG_SQ007","CONFORG_SQ008", "CONFORG_SQ009"),
+                         funs(recode(., 
+                                     "1 - Not confident at all" = 1, 
+                                     "2 - Little confident" = 2, 
+                                     "3 - Somewhat confident"= 3, 
+                                     "4 - Very confident" = 4, 
+                                     .default = NaN)))
+
+dt_3<-dt_3 %>% mutate_at(c("CONFINF_SQ001", "CONFINF_SQ002", "CONFINF_SQ003", "CONFINF_SQ004", "CONFINF_SQ005","CONFINF_SQ006","CONFINF_SQ007","CONFINF_SQ008", "CONFINF_SQ009"),
+                         funs(recode(., 
+                                     "1 - Nothing at all" = 1, 
+                                     "2 - Not very much" = 2, 
+                                     "3 - A fair amount"= 3, 
+                                     "4 - A great deal" = 4, 
+                                     .default = NaN)))
+
+
+dt_3<-dt_3 %>% mutate_at(c("OPIN_SQ001", "OPIN_SQ002", "OPIN_SQ003", "OPIN_SQ004"),
+                         funs(recode(., 
+                                     "1 - Strongly disagree" =1, 
+                                     "2 - Somewhat disagree" = 2, 
+                                     "3 - Somewhat agree"= 3, 
+                                     "4 - Strongly agree" = 4, 
+                                     .default = NaN)))
+
+ dt_3<-dt_3 %>% mutate_at(c("ACTIONS_SQ001", "ACTIONS_SQ002", "ACTIONS_SQ003",   "ACTIONS_SQ004","ACTIONS_SQ005", "ACTIONS_SQ006", "ACTIONS_SQ007", "ACTIONS_SQ008","ACTIONS_SQ009", "ACTIONS_SQ010", "ACTIONS_SQ011", "ACTIONS_SQ012","ACTIONS_SQ013", "ACTIONS_SQ014", "ACTIONS_SQ015", "ACTIONS_SQ016","ACTIONS_SQ017", "ACTIONS_SQ018", "ACTIONS_SQ019", "ACTIONS_SQ020"),
+                         funs(recode(., 
+                                     "No" = 0, 
+                                     "Yes" = 1, 
+                                     .default = NaN)))
+
+
+
+```
+
+```{r}
+
+
+dt_4 <- dt_3 %>%
+  rename(
+    AS_PRDT = ACTIONS_SQ001,
+    IT_PRDT = ACTIONS_SQ002,
+    IR_PRDT = ACTIONS_SQ003,
+    AS_REST = ACTIONS_SQ005,
+    IT_REST = ACTIONS_SQ006,
+    IR_REST = ACTIONS_SQ007,
+    AS_CONT = ACTIONS_SQ018,
+    IT_CONT = ACTIONS_SQ019,
+    IR_CONT = ACTIONS_SQ020,
+    face_mask = ACTIONS_SQ013
+  )
+
+```
+
+
+
+### Figure 1: daily percentage of avoidance, adjusted by regional mobility data
+
+```{r}
+
+AS_PRDT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(AS_PRDT, PSWEIGHT, na.rm = TRUE),
+            sd=sqrt(wtd.var(AS_PRDT, PSWEIGHT, na.rm = TRUE)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Asia",
+         Avoid_type ="Products/food",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+AS_REST <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(AS_REST, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(AS_REST, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Asia",
+         Avoid_type ="Restaurants",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+AS_CONT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(AS_CONT, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(AS_CONT, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Asia",
+         Avoid_type ="People",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IR_PRDT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IR_PRDT, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IR_PRDT, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Iran",
+         Avoid_type ="Products/food",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IR_REST <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IR_REST, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IR_REST, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Iran",
+         Avoid_type ="Restaurants",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IR_CONT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IR_CONT, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IR_CONT, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Iran",
+         Avoid_type ="People",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IT_PRDT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IT_PRDT, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IT_PRDT, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Italy",
+         Avoid_type ="Products/food",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IT_REST <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IT_REST, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IT_REST, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Italy",
+         Avoid_type ="Restaurants",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+IT_CONT <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(IT_CONT, PSWEIGHT, na.rm = T),
+            sd=sqrt(wtd.var(IT_CONT, PSWEIGHT, na.rm = T)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(Origin ="Italy",
+         Avoid_type ="People",
+         rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+All_Avoid <- bind_rows(
+  AS_PRDT,
+  AS_REST,
+  AS_CONT,
+  IR_PRDT,
+  IR_REST,
+  IR_CONT,
+  IT_PRDT,
+  IT_REST,
+  IT_CONT
+)
+
+All_Avoid$DATE<-as.Date(All_Avoid$DATE)
+
+```
+```{r}
+
+face_mask <- dt_4 %>% 
+  group_by(COUNTRY, DATE)%>%
+  summarise(mean=weighted.mean(face_mask, PSWEIGHT, na.rm = TRUE),
+            sd=sqrt(wtd.var(face_mask, PSWEIGHT, na.rm = TRUE)),
+            n=length(.),
+            se= sd/sqrt(n),
+            ci=1.96*se) %>% 
+  mutate(rolling_mean = rollapply(mean, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                  by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_sd = rollapply(sd, width = 7, FUN=function(x)mean(x, na.rm = TRUE), 
+                                by=1, by.column=TRUE, partial=TRUE, fill=NA, align="center"),
+         rolling_se= rolling_sd/sqrt(n),
+         rolling_ci=1.96*rolling_se)
+
+
+face_mask <- face_mask %>%
+  rename( mask_wearing=rolling_mean)
+
+face_mask <- face_mask %>% select(COUNTRY, DATE, mask_wearing)
+
+
+```
+
+
+```{r}
+
+All_Avoid <- left_join(region_mobility, All_Avoid, by = c("country_region_code"="COUNTRY" ,  "date" = "DATE"))
+# All_Avoid <- left_join(All_Avoid, avoid_social, by = c("country_region_code"="COUNTRY", "date" = "DATE"))
+All_Avoid <- left_join(All_Avoid, face_mask, by = c("country_region_code"="COUNTRY", "date" = "DATE"))
+
+
+```
+
+```{r}
+
+lockdown <- data.frame(country_region_code=c("BE","DE","ES","FR","IT","NL","UK","US"),
+                       lock.date=as.Date(c("2020-03-18","2020-03-22","2020-03-14","2020-03-17","2020-03-9","2020-03-15","2020-03-23","2020-03-19")))
+
+  
+```
+
+```{r}
+
+
+lockdown.de.uk.us<-lockdown %>%
+  filter(country_region_code == "DE" | country_region_code == "UK" | country_region_code == "US")
+
+
+```
+
+
+#### Figure 1
+
+```{r}
+
+
+coeff <- 0.85
+
+# tiff("U:/CHBS_1/output/Avoidance/avoidance_ts_de_us_30.01.2024.tiff", units = "cm", width = 28 , height = 20, res= 400)
+
+avoid.gg<- All_Avoid %>%
+  filter(country_region_code == "DE" | country_region_code == "UK"| country_region_code == "US") %>%
+  filter(!is.na(Avoid_type)) %>%
+  ggplot(aes(x = date, y = rolling_mean)) +
+  geom_line(aes(color = Origin)) +
+  scale_x_date(date_labels = '%y-%m-%d') +
+  coord_cartesian(xlim = as.Date(c("2020-03-15", "2020-05-10"))) +
+  facet_grid(Avoid_type ~ country_region_code, switch = "y") + # Switching facet label to the right
+  ylab("Level of Avoidance") +
+  xlab("") +
+  scale_color_manual(
+    name = "Origin",
+    values = c("Asia" = "#1F78B4", "Iran" = "#33A02C", "Italy" = "#FF7F00"),
+    labels = c("Asian", "Iranian", "Italian"),
+    breaks = c("Asia", "Iran", "Italy")
+  ) +
+  
+  geom_line(aes(x = date, y = rest_mobility + coeff, linetype = "Google Mobility", color = "gray70"), 
+            linewidth = 0.7, lineend = "round") +
+
+  geom_line(aes(x=date, y=mask_wearing, linetype ="Mask Wearing" ), color="gray60",linewidth = 0.6, lineend = "round") +
+  
+  scale_color_manual(
+    name = "Origin",
+    values = c("Asia" = "#1F78B4", "Iran" = "#33A02C", "Italy" = "#FF7F00"),
+    labels = c("Asian", "Iranian", "Italian"),
+    breaks = c("Asia", "Iran", "Italy")
+  ) +
+  
+  scale_y_continuous(name = "Level of Avoidance",
+                     limits = c(0, NA),
+                     sec.axis = sec_axis(~.-coeff, name = "Google Mobility Index")) +
+  
+  geom_vline(data = lockdown.de.uk.us, aes(xintercept = lock.date, linetype = "Lockdown"), color = "gray0", size=0.2) +
+  
+  scale_linetype_manual(
+    name = "Measures",
+    values = c("Lockdown" = "dashed", "Google Mobility" = "dotted", "Mask Wearing"= "solid"),
+    labels = c("Lockdown", "Reduction in\nGoogle Mobility", "Mask Wearing"),
+    breaks = c("Lockdown", "Google Mobility", "Mask Wearing")
+  ) +
+  theme(strip.placement = "outside")+
+  theme_bw()
+
+print(avoid.gg)
+ 
+# dev.off()
+
+```
+
+
+```{r}
+
+# tiff("output/Avoidance/avoidance_ts_24.7.2024.tiff", units = "cm", width = 25 , height = 15, res= 400)
+
+
+avoid.all <- All_Avoid %>% 
+  ggplot(aes(x=date, y=rolling_mean))+
+  geom_ma(aes(linetype=Avoid_type, color=Origin), ma_fun=SMA, n=1)+
+  scale_x_date(date_labels ='%y-%m-%d')+
+  theme_minimal()+
+  scale_y_continuous(
+    limits = c(0, 0.4),
+  ) +
+  coord_x_date(xlim = c("2020-03-15","2020-05-10"))+
+  facet_wrap(~country_region_code, ncol=3)+
+  ylab("Percentage of Avoidance")+
+  xlab("")+
+  scale_linetype_manual(
+    name = "Try to Avoid...",
+    values = c("People" = "solid", "Restaurants" = "twodash", "Products/food" = "dotted"),  
+    labels = c("People", "Restaurants", "Products/food"),
+    breaks = c("People", "Restaurants", "Products/food"))+
+  scale_color_manual(
+    name = "Origin",
+    values = c("Asia" = "#1F78B4", "Iran" = "#33A02C","Italy"="#FF7F00"),  
+    labels = c("Asian", "Iranian","Italian"),
+    breaks = c("Asia", "Iran","Italy")) +
+  theme(legend.position = c(0.82, 0.10), legend.box = "horizontal")
+
+print(avoid.all)
+
+
+# dev.off()
+
+```
+
+
+
+
+```{r}
+
+coeff <- 0.7
+
+# tiff("U:/CHBS_1/output/Avoidance/avoidance_ts_30.10.2024.tiff", units = "cm", width = 28 , height = 17, res= 400)
+
+
+avoid.all.measure <-All_Avoid %>% 
+  ggplot(aes(x=date, y=rolling_mean))+
+  geom_ma(aes(linetype=Avoid_type, color=Origin), ma_fun=SMA, n=1)+
+  scale_x_date(date_labels ='%y-%m-%d')+
+  theme_minimal()+
+  coord_x_date(xlim = c("2020-03-15","2020-05-10"))+
+  facet_wrap(~country_region_code, ncol=3)+
+  xlab("")+
+  scale_linetype_manual(
+    name = "Try to Avoid...",
+    values = c("People" = "solid", "Restaurants" = "twodash", "Products/food" = "dotted"),  
+    labels = c("People", "Restaurants", "Products/food"),
+    breaks = c("People", "Restaurants", "Products/food"))+
+  scale_color_manual(
+    name = "Origin",
+    values = c("Asia" = "#1F78B4", "Iran" = "#33A02C","Italy"="#FF7F00"),  
+    labels = c("Asian", "Iranian","Italian"),
+    breaks = c("Asia", "Iran","Italy")) +
+  theme(legend.position = c(0.82, 0.10), legend.box = "horizontal")+
+  geom_line(aes(x=date, y=rest_mobility + coeff), color="gray40",linewidth = 0.6, lineend = "round", linetype ="dotted")+
+  scale_y_continuous(name = "Level of Avoidance",  
+                     sec.axis = sec_axis(~.-coeff, name = "Level of Mobility"))+
+  geom_vline(data = lockdown, aes(xintercept=lock.date), color= "gray10", linetype ="dashed")+
+  geom_line(aes(x=date, y=mask_wearing ), color="gray60",linewidth = 0.6, lineend = "round", linetype ="solid")
+
+
+print(avoid.all.measure)
+
+# dev.off()
+
+```
+
+
+
+
+
+### percieved threats -> immgrant avoidance
+###### test the significance of the level of percieved threats on the immigrant avoidance action
+
+```{r}
+
+threat_p_asian <-dt_4 %>% 
+  group_by(COUNTRY, RISK_SQ004) %>%
+  summarise(AS_PR=weighted.mean(AS_PRDT, PSWEIGHT, na.rm = T),
+            AS_RS=weighted.mean(AS_REST, PSWEIGHT, na.rm = T),
+            AS_PL=weighted.mean(AS_CONT, PSWEIGHT, na.rm = T),
+            value=(AS_PR+AS_RS+AS_PL)/3) 
+
+threat_p_asian <- as.data.frame(threat_p_asian)
+threat_p_asian$COUNTRY <- factor(threat_p_asian$COUNTRY, levels = c("DE","FR","BE","NL","ES","UK","IT","US"))
+
+```
+
+
+```{r, fig.height=5, fig.width=7, cache=FALSE}
+
+# tiff("output/Avoidance/avoidance_as_threats.tiff", units = "cm", width = 25 , height = 20, res= 400)
+
+AS_1 <-ggplot(threat_p_asian, aes(x=COUNTRY, y=RISK_SQ004, fill=AS_PR, label=sprintf("%0.2f", round(value, digits = 2)))) 
+
+AS_1 +geom_tile(color="white", size=0.1)+
+  geom_text()+
+  coord_equal()+
+  ggthemes::theme_tufte()+
+  scale_fill_gradient2(
+  name = "Rate of Avoidance\nto Asian-Hints",
+  low = "coral",    
+  high = "steelblue",  
+  mid = "white",       
+  midpoint = 0.15,  
+  limits = c(0, 0.3))+
+  ylab("Level of Percieved Threats to Oneself")+
+  xlab("")+
+  theme(
+  legend.text = element_text(family = "Verdana"),
+  legend.title = element_text(family = "Verdana"),
+  axis.text.x = element_text(family = "Verdana"),
+  axis.title.y = element_text(family = "Verdana"),
+  axis.text.y = element_text(family = "Verdana"))
+
+
+# dev.off()
+  
+# order from left to right by the color (DE FR BE NL ES UK IT US)
+
+```
+
+
+```{r}
+
+threat_p_iran <-dt_4 %>% 
+  group_by(COUNTRY, RISK_SQ004) %>%
+  summarise(IR_PR=weighted.mean(IR_PRDT, PSWEIGHT, na.rm = T),
+            IR_RS=weighted.mean(IR_REST, PSWEIGHT, na.rm = T),
+            IR_PL=weighted.mean(IR_CONT, PSWEIGHT, na.rm = T),
+            value=(IR_PR+IR_RS+IR_PL)/3) 
+
+threat_p_iran <- as.data.frame(threat_p_iran)
+threat_p_iran$COUNTRY <- factor(threat_p_iran$COUNTRY, levels = c("DE","FR","BE","NL","ES","UK","IT","US"))
+
+```
+
+
+```{r, fig.height=8, fig.width=10, cache=FALSE}
+
+# tiff("output/Avoidance/avoidance_ir_threats.tiff", units = "cm", width = 25 , height = 20, res= 400)
+
+IR_1 <-ggplot(threat_p_iran, aes(x=COUNTRY, y=RISK_SQ004, fill=value, label=sprintf("%0.2f", round(value, digits = 2)))) 
+
+IR_1+geom_tile(color="white", size=0.1)+
+  geom_text()+
+  coord_equal()+
+  ggthemes::theme_tufte()+
+  scale_fill_gradient2(
+  name = "Rate of Avoidance\nto Iranian-Hints",
+  low = "coral",    
+  high = "steelblue",  
+  mid = "white",       
+  midpoint = 0.15,  
+  limits = c(0, 0.3))+
+  ylab("Level of Percieved Threats to Oneself")+
+  xlab("")+
+  theme(
+  legend.text = element_text(family = "Verdana"),
+  legend.title = element_text(family = "Verdana"),
+  axis.text.x = element_text(family = "Verdana"),
+  axis.title.y = element_text(family = "Verdana"),
+  axis.text.y = element_text(family = "Verdana"))
+
+#  dev.off()
+
+# order from left to right by the color (DE FR BE NL ES UK IT US)
+
+```
+
+```{r}
+
+threat_p_italy <-dt_4 %>% 
+  group_by(COUNTRY, RISK_SQ004) %>%
+  summarise(IT_PR=weighted.mean(IT_PRDT, PSWEIGHT, na.rm = T),
+            IT_RS=weighted.mean(IT_REST, PSWEIGHT, na.rm = T),
+            IT_PL=weighted.mean(IT_CONT, PSWEIGHT, na.rm = T),
+            value=(IT_PR+IT_RS+IT_PL)/3) 
+
+threat_p_italy <- as.data.frame(threat_p_italy)
+threat_p_italy$COUNTRY <- factor(threat_p_italy$COUNTRY, levels = c("DE","FR","BE","NL","ES","UK","IT","US"))
+
+```
+
+
+```{r, fig.height=8, fig.width=10, cache=FALSE}
+
+# tiff("output/Avoidance/avoidance_it_threats.tiff", units = "cm", width = 25 , height = 20, res= 400)
+
+IT_1 <-threat_p_italy %>% 
+  filter(COUNTRY!="IT")%>%
+  ggplot(aes(x=COUNTRY, y=RISK_SQ004, fill=value, label=sprintf("%0.2f", round(value, digits = 2)))) 
+
+IT_1+geom_tile(color="white", size=0.1)+
+  geom_text()+
+  coord_equal()+
+  ggthemes::theme_tufte()+
+  scale_fill_gradient2(
+  name = "Rate of Avoidance\nto Italian-Hints",
+  low = "coral",    
+  high = "steelblue",  
+  mid = "white",       
+  midpoint = 0.15,  
+  limits = c(0, 0.3))+
+  ylab("Level of Percieved Threats to Personal")+
+  xlab("")+
+  theme(
+  legend.text = element_text(family = "Verdana"),
+  legend.title = element_text(family = "Verdana"),
+  axis.text.x = element_text(family = "Verdana"),
+  axis.title.y = element_text(family = "Verdana"),
+  axis.text.y = element_text(family = "Verdana"))
+
+ # dev.off()
+  
+# order from left to right by the color (DE FR BE NL ES UK IT US)
+
+```
+
+
+
+### split into 9 facets
+
+```{r}
+
+threat_p <-dt_4 %>% 
+  group_by(COUNTRY, RISK_SQ004) %>%
+  summarise(AS_PR=weighted.mean(AS_PRDT, PSWEIGHT, na.rm = T),
+            AS_RS=weighted.mean(AS_REST, PSWEIGHT, na.rm = T),
+            AS_PL=weighted.mean(AS_CONT, PSWEIGHT, na.rm = T),
+            IR_PR=weighted.mean(IR_PRDT, PSWEIGHT, na.rm = T),
+            IR_RS=weighted.mean(IR_REST, PSWEIGHT, na.rm = T),
+            IR_PL=weighted.mean(IR_CONT, PSWEIGHT, na.rm = T),
+            IT_PR=weighted.mean(IT_PRDT, PSWEIGHT, na.rm = T),
+            IT_RS=weighted.mean(IT_REST, PSWEIGHT, na.rm = T),
+            IT_PL=weighted.mean(IT_CONT, PSWEIGHT, na.rm = T))
+           
+
+threat_p <- as.data.frame(threat_p)
+threat_p$COUNTRY <- factor(threat_p$COUNTRY, levels = c("DE","FR","BE","NL","ES","UK","US","IT"))
+
+
+threat_p_long <- threat_p %>%
+  pivot_longer(
+    cols = c("AS_PR","AS_RS","AS_PL","IR_PR","IR_RS","IR_PL", "IT_PR","IT_RS","IT_PL"), 
+    names_to = "Avoidance_type",           
+    values_to = "value"          
+  )
+
+threat_p_long <-threat_p_long %>% filter(!is.nan(RISK_SQ004))
+
+threat_p_long$Avoidance_type <- factor(threat_p_long$Avoidance_type, 
+                                       levels = c("AS_RS","AS_PR","AS_PL","IR_RS","IR_PR","IR_PL","IT_RS","IT_PR","IT_PL"),
+                                       labels = c("Asian Restaurant", "Asian Product/ Food", "Asian Contacts",
+                                                  "Iranian Restaurant", "Iranian Product/ Food", "Iranian Contacts",
+                                                  "Italian Restaurant", "Italian Product/ Food", "Italian Contacts"))
+
+
+
+
+```
+
+
+```{r}
+
+# tiff("U:/CHBS_1/output/Avoidance/avoidance_threats_all_22.10.2024.tiff", units = "cm", width = 25 , height = 20, res= 600)
+
+gg <-ggplot(threat_p_long, aes(x=COUNTRY, y=RISK_SQ004, fill=value, label=sprintf("%0.2f", round(value, digits = 2)))) 
+
+gg <- gg+geom_tile(color="white", size=0.1)+
+  geom_text(size=3.5)+
+  coord_equal()+
+  ggthemes::theme_tufte()+
+  scale_fill_gradient2(
+    name = "Avoidance Rate",
+    low = "#0072B2",    
+    high = "#D55E00",  
+    mid = "white",       
+    midpoint = 0.15,  
+    limits = c(0, 0.35),
+    na.value = "grey80",
+    guide = guide_colorbar(reverse = TRUE))+
+  ylab("Level of Percieved Threats")+
+  xlab("")+
+  theme(
+    legend.text = element_text(family = "Verdana"),
+    legend.title = element_text(family = "Verdana"),
+    legend.position = "right",
+    axis.text.x = element_text(family = "Verdana"),
+    axis.title.y = element_text(family = "Verdana"),
+    axis.text.y = element_text(family = "Verdana"),
+    strip.text.x = element_text(family = "Verdana"))+
+  facet_wrap(~Avoidance_type)
+
+print(gg) # this is important for dev.off !!
+
+# dev.off()
+
+```
+
+```{r}
+
+ggsave(
+    "U:/CHBS_1/output/Avoidance/avoidance_threats_all_22.10.2024.tiff",
+    plot = gg,
+    width = 25,
+     height = 20,
+     units = "cm",
+     dpi = 400
+ )
+
+```
+
+### Confidence in information sources -> percieved threats  
+
+
+```{r}
+
+
+dt_4 <- dt_4 %>%
+  mutate(
+    social_media = as.factor(recode(CONFINF_SQ001, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    frie_fami_col = as.factor(recode(CONFINF_SQ002, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    government = as.factor(recode(CONFINF_SQ003, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    radio = as.factor(recode(CONFINF_SQ004, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    magazine = as.factor(recode(CONFINF_SQ005, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    newspaper = as.factor(recode(CONFINF_SQ006, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    television = as.factor(recode(CONFINF_SQ007, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    internet = as.factor(recode(CONFINF_SQ008, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_)),
+    medical_prof = as.factor(recode(CONFINF_SQ009, `1` = 0, `2` = 0, `3` = 1, `4` = 1, .default = NA_real_))
+  )
+
+
+```
+
+
+```{r}
+
+variable_names <- c("social_media", "frie_fami_col", "government", "radio", "magazine", "newspaper", "television", "internet","medical_prof")
+
+threat_media <- lapply(variable_names, function(variable) {
+  dt_4 %>%
+    group_by(COUNTRY, !!sym(variable)) %>%
+    summarise(mean = weighted.mean(RISK_SQ004, PSWEIGHT, na.rm = TRUE) / 5) %>%
+    pivot_wider(names_from = !!sym(variable), values_from = mean) %>%
+     mutate(variable_name = variable) %>%
+    rename_all(~ paste0("var_", .))
+}) %>%
+  bind_rows()
+
+```
+
+```{r}
+
+threat_media<- threat_media %>% rename(country=var_COUNTRY, no_confid=var_0, with_confid=var_1, media_source =var_variable_name)
+threat_media$country <- factor(threat_media$country, levels = c("IT","UK","ES","BE","FR","NL","US","DE"))
+threat_media$media_source <- factor(threat_media$media_source, levels = c("newspaper", "magazine", "television","radio","medical_prof", "government", "internet", "social_media","frie_fami_col"))
+threat_media <- threat_media %>% mutate(ratio=with_confid/no_confid)
+
+```
+
+```{r, fig.height=6, fig.width=10, cache=FALSE}
+
+ tiff("U:/CHBS_1/output/Avoidance/avoidance_info_threats_30.01.2024.tiff", units = "cm", width = 25 , height = 15, res= 400)
+
+threat_media %>% 
+# filter(media_source!="radio"& media_source!="magazine"& media_source!="frie_fami_col") %>%
+ggplot(aes(x=no_confid, y=with_confid))+
+  geom_point(aes(color=country, shape=media_source), alpha = 0.8, size = 3)+
+  theme_classic()+
+  scale_shape_manual(values=c(2, 17, 5, 18, 0, 15, 1, 16, 8),
+                     labels=c("Newspapers", "Magazines", "Television","Radio","Medical Profesionals\n(e.g. Doctor)", "Government Heath Officials", "The Internet", "Social Media Networks","Friends, Family & Colleagues")) +
+  theme(legend.position = c(0.85, 0.32),legend.box = "horizontal")+
+  xlab("Threat Perception to Oneself (Without/Less Confidence in this Information Source)")+
+  ylab("Threat Perception to Oneself (With/More Confidence in this Information Source)")+
+  scale_x_continuous(limits = c(0.4, 0.7))+
+  scale_y_continuous(limits = c(0.4, 0.7))+
+  geom_abline()+
+  scale_color_viridis(discrete = TRUE, option = "D") +
+  labs(color = "Country", shape="Information Source")+
+  guides(color = guide_legend(nrow = 8, byrow = TRUE, order = 1),
+         shape = guide_legend(nrow = 9,byrow = TRUE, order = 2))
+
+
+
+ dev.off()
+
+```
+
+
+### confidence on media -> immigrant avoidance
+#### univariate regression 
+
+```{r}
+
+logit_uni <- function(Dat, x, y, x_label,  y_country,y_behavior) {
+  est <- glm(reformulate(as.character(substitute(x)), as.character(substitute(y))),
+             family = binomial(link = "logit"), weights = Dat$PSWEIGHT, data = Dat)
+
+  est_or <- exp(cbind("Odds ratio" = coef(est), confint.default(est, level = 0.95)))
+  est_pv <- summary(est)$coefficients[,"Pr(>|z|)"]
+
+  est_df <- data.frame(
+    "Odds ratio" = est_or[, 1],
+    "CI_Lower" = est_or[, 2],
+    "CI_Upper" = est_or[, 3],
+    "P-value" = est_pv,
+    "Significance" = case_when(
+      est_pv > 0.1 ~ "",
+      est_pv > 0.05 ~ "·",
+      est_pv > 0.01 ~ "*",
+      est_pv > 0.001 ~ "**",
+      !is.na(est_pv) ~ "***",
+      TRUE ~ NA_character_
+    ),
+    "Information_Type" = x_label,
+    "Avoidance" = y_behavior,
+    "Immigrant Country" = y_country
+  )
+
+  rownames(est_df) <- NULL
+  est_df <-est_df[-1,]
+
+  return(est_df)
+}
+
+# result <- logit_uni(Dat, "x", "y", "x_label", "y_behavior", "y_country")
+
+
+```
+
+
+```{r, warning=FALSE}
+
+sm.aspr<- logit_uni(dt_4, "CONFINF_SQ001", "AS_PRDT", "Social Media Network","Asian","Avoid Food/Products")
+ffc.aspr<- logit_uni(dt_4, "CONFINF_SQ002", "AS_PRDT", "Friends, Family & Colleagues", "Asian","Avoid Food/Products")
+gov.aspr<- logit_uni(dt_4, "CONFINF_SQ003", "AS_PRDT", "Government Health Officials", "Asian","Avoid Food/Products")
+rad.aspr<- logit_uni(dt_4, "CONFINF_SQ004", "AS_PRDT", "Radio", "Asian","Avoid Food/Products")
+mgz.aspr<- logit_uni(dt_4, "CONFINF_SQ005", "AS_PRDT", "Magazines", "Asian","Avoid Food/Products")
+new.aspr<- logit_uni(dt_4, "CONFINF_SQ006", "AS_PRDT", "Newspapers", "Asian","Avoid Food/Products")
+tv.aspr<- logit_uni(dt_4, "CONFINF_SQ007", "AS_PRDT", "Television", "Asian","Avoid Food/Products")
+int.aspr<- logit_uni(dt_4, "CONFINF_SQ008", "AS_PRDT", "The Internet", "Asian","Avoid Food/Products")
+med.aspr<- logit_uni(dt_4, "CONFINF_SQ009", "AS_PRDT", "Medical Professionals\n(e.g. Doctor)", "Asian","Avoid Food/Products")
+
+sm.irpr<- logit_uni(dt_4, "CONFINF_SQ001", "IR_PRDT", "Social Media Network","Iranian","Avoid Food/Products")
+ffc.irpr<- logit_uni(dt_4, "CONFINF_SQ002", "IR_PRDT", "Friends, Family & Colleagues", "Iranian","Avoid Food/Products")
+gov.irpr<- logit_uni(dt_4, "CONFINF_SQ003", "IR_PRDT", "Government Health Officials", "Iranian","Avoid Food/Products")
+rad.irpr<- logit_uni(dt_4, "CONFINF_SQ004", "IR_PRDT", "Radio", "Iranian","Avoid Food/Products")
+mgz.irpr<- logit_uni(dt_4, "CONFINF_SQ005", "IR_PRDT", "Magazines", "Iranian","Avoid Food/Products")
+new.irpr<- logit_uni(dt_4, "CONFINF_SQ006", "IR_PRDT", "Newspapers", "Iranian","Avoid Food/Products")
+tv.irpr<- logit_uni(dt_4, "CONFINF_SQ007", "IR_PRDT", "Television", "Iranian","Avoid Food/Products")
+int.irpr<- logit_uni(dt_4, "CONFINF_SQ008", "IR_PRDT", "The Internet", "Iranian","Avoid Food/Products")
+med.irpr<- logit_uni(dt_4, "CONFINF_SQ009", "IR_PRDT", "Medical Professionals\n(e.g. Doctor)", "Iranian","Avoid Food/Products")
+
+sm.itpr<- logit_uni(dt_4, "CONFINF_SQ001", "IT_PRDT", "Social Media Network", "Italian","Avoid Food/Products")
+ffc.itpr<- logit_uni(dt_4, "CONFINF_SQ002", "IT_PRDT", "Friends, Family & Colleagues", "Italian","Avoid Food/Products")
+gov.itpr<- logit_uni(dt_4, "CONFINF_SQ003", "IT_PRDT", "Government Health Officials", "Italian","Avoid Food/Products")
+rad.itpr<- logit_uni(dt_4, "CONFINF_SQ004", "IT_PRDT", "Radio", "Italian","Avoid Food/Products")
+mgz.itpr<- logit_uni(dt_4, "CONFINF_SQ005", "IT_PRDT", "Magazines", "Italian","Avoid Food/Products")
+new.itpr<- logit_uni(dt_4, "CONFINF_SQ006", "IT_PRDT", "Newspapers", "Italian","Avoid Food/Products")
+tv.itpr<- logit_uni(dt_4, "CONFINF_SQ007", "IT_PRDT", "Television", "Italian","Avoid Food/Products")
+int.itpr<- logit_uni(dt_4, "CONFINF_SQ008", "IT_PRDT", "The Internet", "Italian","Avoid Food/Products")
+med.itpr<- logit_uni(dt_4, "CONFINF_SQ009", "IT_PRDT", "Medical Professionals\n(e.g. Doctor)", "Italian","Avoid Food/Products")
+
+```
+
+
+```{r, warning=FALSE}
+
+sm.asres<- logit_uni(dt_4, "CONFINF_SQ001", "AS_REST", "Social Media Network", "Asian","Avoid Restaurants")
+ffc.asres<- logit_uni(dt_4, "CONFINF_SQ002", "AS_REST", "Friends, Family & Colleagues", "Asian","Avoid Restaurants")
+gov.asres<- logit_uni(dt_4, "CONFINF_SQ003", "AS_REST", "Government Health Officials", "Asian","Avoid Restaurants")
+rad.asres<- logit_uni(dt_4, "CONFINF_SQ004", "AS_REST", "Radio", "Asian","Avoid Restaurants")
+mgz.asres<- logit_uni(dt_4, "CONFINF_SQ005", "AS_REST", "Magazines", "Asian","Avoid Restaurants")
+new.asres<- logit_uni(dt_4, "CONFINF_SQ006", "AS_REST", "Newspapers", "Asian","Avoid Restaurants")
+tv.asres<- logit_uni(dt_4, "CONFINF_SQ007", "AS_REST", "Television", "Asian","Avoid Restaurants")
+int.asres<- logit_uni(dt_4, "CONFINF_SQ008", "AS_REST", "The Internet", "Asian","Avoid Restaurants")
+med.asres<- logit_uni(dt_4, "CONFINF_SQ009", "AS_REST", "Medical Professionals\n(e.g. Doctor)", "Asian","Avoid Restaurants")
+
+sm.irres<- logit_uni(dt_4, "CONFINF_SQ001", "IR_REST", "Social Media Network", "Iranian","Avoid Restaurants")
+ffc.irres<- logit_uni(dt_4, "CONFINF_SQ002", "IR_REST", "Friends, Family & Colleagues", "Iranian","Avoid Restaurants")
+gov.irres<- logit_uni(dt_4, "CONFINF_SQ003", "IR_REST", "Government Health Officials", "Iranian","Avoid Restaurants")
+rad.irres<- logit_uni(dt_4, "CONFINF_SQ004", "IR_REST", "Radio", "Iranian","Avoid Restaurants")
+mgz.irres<- logit_uni(dt_4, "CONFINF_SQ005", "IR_REST", "Magazines", "Iranian","Avoid Restaurants")
+new.irres<- logit_uni(dt_4, "CONFINF_SQ006", "IR_REST", "Newspapers", "Iranian","Avoid Restaurants")
+tv.irres<- logit_uni(dt_4, "CONFINF_SQ007", "IR_REST", "Television", "Iranian","Avoid Restaurants")
+int.irres<- logit_uni(dt_4, "CONFINF_SQ008", "IR_REST", "The Internet", "Iranian","Avoid Restaurants")
+med.irres<- logit_uni(dt_4, "CONFINF_SQ009", "IR_REST", "Medical Professionals\n(e.g. Doctor)", "Iranian","Avoid Restaurants")
+
+sm.itres<- logit_uni(dt_4, "CONFINF_SQ001", "IT_REST", "Social Media Network", "Italian","Avoid Restaurants")
+ffc.itres<- logit_uni(dt_4, "CONFINF_SQ002", "IT_REST", "Friends, Family & Colleagues", "Italian","Avoid Restaurants")
+gov.itres<- logit_uni(dt_4, "CONFINF_SQ003", "IT_REST", "Government Health Officials", "Italian","Avoid Restaurants")
+rad.itres<- logit_uni(dt_4, "CONFINF_SQ004", "IT_REST", "Radio", "Italian","Avoid Restaurants")
+mgz.itres<- logit_uni(dt_4, "CONFINF_SQ005", "IT_REST", "Magazines", "Italian","Avoid Restaurants")
+new.itres<- logit_uni(dt_4, "CONFINF_SQ006", "IT_REST", "Newspapers", "Italian","Avoid Restaurants")
+tv.itres<- logit_uni(dt_4, "CONFINF_SQ007", "IT_REST", "Television", "Italian","Avoid Restaurants")
+int.itres<- logit_uni(dt_4, "CONFINF_SQ008", "IT_REST", "The Internet", "Italian","Avoid Restaurants")
+med.itres<- logit_uni(dt_4, "CONFINF_SQ009", "IT_REST", "Medical Professionals\n(e.g. Doctor)", "Italian","Avoid Restaurants")
+
+```
+
+
+```{r, warning=FALSE}
+
+sm.ascon<- logit_uni(dt_4, "CONFINF_SQ001", "AS_CONT", "Social Media Network", "Asian","Avoid Contacts")
+ffc.ascon<- logit_uni(dt_4, "CONFINF_SQ002", "AS_CONT", "Friends, Family & Colleagues", "Asian","Avoid Contacts")
+gov.ascon<- logit_uni(dt_4, "CONFINF_SQ003", "AS_CONT", "Government Health Officials", "Asian","Avoid Contacts")
+rad.ascon<- logit_uni(dt_4, "CONFINF_SQ004", "AS_CONT", "Radio", "Asian","Avoid Contacts")
+mgz.ascon<- logit_uni(dt_4, "CONFINF_SQ005", "AS_CONT", "Magazines", "Asian","Avoid Contacts")
+new.ascon<- logit_uni(dt_4, "CONFINF_SQ006", "AS_CONT", "Newspapers", "Asian","Avoid Contacts")
+tv.ascon<- logit_uni(dt_4, "CONFINF_SQ007", "AS_CONT", "Television", "Asian","Avoid Contacts")
+int.ascon<- logit_uni(dt_4, "CONFINF_SQ008", "AS_CONT", "The Internet", "Asian","Avoid Contacts")
+med.ascon<- logit_uni(dt_4, "CONFINF_SQ009", "AS_CONT", "Medical Professionals\n(e.g. Doctor)", "Asian","Avoid Contacts")
+
+sm.ircon<- logit_uni(dt_4, "CONFINF_SQ001", "IR_CONT", "Social Media Network",  "Iranian","Avoid Contacts")
+ffc.ircon<- logit_uni(dt_4, "CONFINF_SQ002", "IR_CONT", "Friends, Family & Colleagues", "Iranian","Avoid Contacts")
+gov.ircon<- logit_uni(dt_4, "CONFINF_SQ003", "IR_CONT", "Government Health Officials", "Iranian","Avoid Contacts")
+rad.ircon<- logit_uni(dt_4, "CONFINF_SQ004", "IR_CONT", "Radio", "Iranian","Avoid Contacts")
+mgz.ircon<- logit_uni(dt_4, "CONFINF_SQ005", "IR_CONT", "Magazines", "Iranian","Avoid Contacts")
+new.ircon<- logit_uni(dt_4, "CONFINF_SQ006", "IR_CONT", "Newspapers", "Iranian","Avoid Contacts")
+tv.ircon<- logit_uni(dt_4, "CONFINF_SQ007", "IR_CONT", "Television", "Iranian","Avoid Contacts")
+int.ircon<- logit_uni(dt_4, "CONFINF_SQ008", "IR_CONT", "The Internet", "Iranian","Avoid Contacts")
+med.ircon<- logit_uni(dt_4, "CONFINF_SQ009", "IR_CONT", "Medical Professionals\n(e.g. Doctor)", "Iranian","Avoid Contacts")
+
+sm.itcon<- logit_uni(dt_4, "CONFINF_SQ001", "IT_CONT", "Social Media Network",  "Italian","Avoid Contacts")
+ffc.itcon<- logit_uni(dt_4, "CONFINF_SQ002", "IT_CONT", "Friends, Family & Colleagues", "Italian","Avoid Contacts")
+gov.itcon<- logit_uni(dt_4, "CONFINF_SQ003", "IT_CONT", "Government Health Officials", "Italian","Avoid Contacts")
+rad.itcon<- logit_uni(dt_4, "CONFINF_SQ004", "IT_CONT", "Radio", "Italian","Avoid Contacts")
+mgz.itcon<- logit_uni(dt_4, "CONFINF_SQ005", "IT_CONT", "Magazines", "Italian","Avoid Contacts")
+new.itcon<- logit_uni(dt_4, "CONFINF_SQ006", "IT_CONT", "Newspapers", "Italian","Avoid Contacts")
+tv.itcon<- logit_uni(dt_4, "CONFINF_SQ007", "IT_CONT", "Television", "Italian","Avoid Contacts")
+int.itcon<- logit_uni(dt_4, "CONFINF_SQ008", "IT_CONT", "The Internet", "Italian","Avoid Contacts")
+med.itcon<- logit_uni(dt_4, "CONFINF_SQ009", "IT_CONT", "Medical Professionals\n(e.g. Doctor)", "Italian","Avoid Contacts")
+
+```
+
+```{r}
+
+df_names <- c(
+  "sm.aspr", "ffc.aspr", "gov.aspr", "rad.aspr", "mgz.aspr",
+  "new.aspr", "tv.aspr", "int.aspr", "med.aspr",
+  "sm.irpr", "ffc.irpr", "gov.irpr", "rad.irpr", "mgz.irpr",
+  "new.irpr", "tv.irpr", "int.irpr", "med.irpr",
+  "sm.itpr", "ffc.itpr", "gov.itpr", "rad.itpr", "mgz.itpr",
+  "new.itpr", "tv.itpr", "int.itpr", "med.itpr",
+  "sm.asres", "ffc.asres", "gov.asres", "rad.asres", "mgz.asres",
+  "new.asres", "tv.asres", "int.asres", "med.asres",
+  "sm.irres", "ffc.irres", "gov.irres", "rad.irres", "mgz.irres",
+  "new.irres", "tv.irres", "int.irres", "med.irres",
+  "sm.itres", "ffc.itres", "gov.itres", "rad.itres", "mgz.itres",
+  "new.itres", "tv.itres", "int.itres", "med.itres",
+  "sm.ascon", "ffc.ascon", "gov.ascon", "rad.ascon", "mgz.ascon",
+  "new.ascon", "tv.ascon", "int.ascon", "med.ascon",
+  "sm.ircon", "ffc.ircon", "gov.ircon", "rad.ircon", "mgz.ircon",
+  "new.ircon", "tv.ircon", "int.ircon", "med.ircon",
+  "sm.itcon", "ffc.itcon", "gov.itcon", "rad.itcon", "mgz.itcon",
+  "new.itcon", "tv.itcon", "int.itcon", "med.itcon"
+)
+
+
+df_list <- mget(df_names)
+avoid_df <- do.call(rbind, df_list)
+rm(list = df_names)
+
+
+```
+
+```{r, fig.height=8, fig.width=12, cache=FALSE}
+
+ tiff("U:/CHBS_1/output/Avoidance/info_immi_avoidance_3.tiff", units = "cm", width = 23 , height = 16, res= 400)
+
+avoid_df %>% 
+ggplot(aes(x = Odds.ratio, y = Information_Type)) + 
+    geom_vline(aes(xintercept = 1), size = .25, linetype = "dashed") + 
+    geom_errorbarh(aes(xmax = CI_Upper, xmin = CI_Lower, color=Avoidance), size = .7, 
+                   height =.2,position=position_dodge(width = 0.5) ) +
+    geom_point(aes(color=Avoidance), size = 1.5, position=position_dodge(width = 0.5)) +
+  #  geom_text(aes(label=Significance, y = Information_Type, color=Avoidance), position=position_dodge(width = 0.9))+
+    theme_bw()+
+    theme(panel.grid.minor = element_blank(),
+          legend.position = "bottom") +
+    scale_color_manual(values= c("#E69F00", "#56B4E9", "#009E73")) +
+    ylab("") +
+    xlab("Odds ratio") +
+   # annotate(geom = "text", y =1.1, x = log10(1.5), 
+   #                  label = "Model p < 0.001\nPseudo R^2 = 0.10", size = 3.5, hjust = 0) + 
+   # ggtitle("Odds Ratio of Confidence in Information Sources on Immigrant-Avoidance Behaviors", )+
+    facet_grid(~Immigrant.Country)
+
+  dev.off()  
+
+```
+
+
+
+
+
+
